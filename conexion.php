@@ -4,10 +4,11 @@ $user = "root";
 $pass = "";
 $db = "clinica_san_pablo";
 
-$conn = new mysqli($host, $user, $pass, $db);
+// Cambiamos $conn por $conexion
+$conexion = new mysqli($host, $user, $pass, $db);
 
-if ($conn->connect_error){
-    die("Error de conexion: ".$conn->connect_error);
+if ($conexion->connect_error){
+    die("Error de conexion: ".$conexion->connect_error);
 }
 else {
     echo "Conexion exitosa!";
