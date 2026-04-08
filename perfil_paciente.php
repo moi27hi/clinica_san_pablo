@@ -5,8 +5,7 @@ if (empty($_SESSION["id"]) || $_SESSION["rol"] != 'paciente') {
     header("location: index.php"); 
     exit(); 
 }
-
-// Supongamos que el ID del paciente logueado es 1 (puedes cambiarlo por $_SESSION['id_paciente'])
+// Capturamos el ID del paciente logueado para usarlo en las consultas
 $id_logueado = $_SESSION['id']; 
 
 // --- LÓGICA: ACTUALIZAR DATOS PERSONALES ---
