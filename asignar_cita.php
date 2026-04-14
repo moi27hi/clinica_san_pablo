@@ -1,21 +1,23 @@
 <?php
 session_start();
-if (empty($_SESSION["id"])) { header("location: index.php"); exit(); }
+if (empty($_SESSION["id"]) || $_SESSION["rol"] != 'admin') { header("location: index.php"); exit(); }
 include("conexion.php");
 
 // Lógica para guardar la relación
 if (!empty($_POST["btnasignar"])) {
-    $paciente = $_POST["paciente"];
-    $doctor = $_POST["doctor"];
-    $fecha = $_POST["fecha"];
-    $obs = $_POST["observaciones"];
+    $paciente = (int) $_POST["paciente"];
+    $doctor   = (int) $_POST["doctor"];
+    $fecha    = $_POST["fecha"];
+    $hora     = $_POST["hora"];
+    $obs      = $_POST["observaciones"];
 
-    $sql = $conexion->query("INSERT INTO citas (id_paciente, id_doctor, fecha_cita, observaciones) VALUES ('$paciente', '$doctor', '$fecha', '$obs')");
-    
-    if ($sql) {
-        echo "<div class='alert alert-success mt-2 text-center'>Cita programada con éxito</div>";
+    $stmt = $conexion->prepare("INSERT INTO citas (id_paciente, id_doctor, fecha_cita, hora_cita, observaciones) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("iisss", $paciente, $doctor, $fecha, $hora, $obs);
+
+    if ($stmt->execute()) {
+        $msg = "Cita programada con éxito";
     } else {
-        echo "<div class='alert alert-danger mt-2'>Error: " . $conexion->error . "</div>";
+        $error = "Error al programar la cita.";
     }
 }
 ?>
@@ -32,6 +34,12 @@ if (!empty($_POST["btnasignar"])) {
         <div class="row justify-content-center">
             <div class="col-md-6 card shadow p-4">
                 <h3 class="text-center mb-4 text-primary">Nueva Cita Médica</h3>
+                <?php if (!empty($msg)): ?>
+                    <div class="alert alert-success text-center"><?= htmlspecialchars($msg) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($error)): ?>
+                    <div class="alert alert-danger text-center"><?= htmlspecialchars($error) ?></div>
+                <?php endif; ?>
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label">Seleccionar Paciente</label>
@@ -59,9 +67,15 @@ if (!empty($_POST["btnasignar"])) {
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Fecha de la Cita</label>
-                        <input type="date" name="fecha" class="form-control" required>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">Fecha de la Cita</label>
+                            <input type="date" name="fecha" class="form-control" required>
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Hora</label>
+                            <input type="time" name="hora" class="form-control" required min="07:00" max="18:00">
+                        </div>
                     </div>
 
                     <div class="mb-3">

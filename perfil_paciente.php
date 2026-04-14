@@ -15,46 +15,41 @@ if (!empty($_POST["btn_actualizar"])) {
     $dir = $_POST["direccion"];
     $tel = $_POST["telefono"];
 
-    // Actualizamos nombre, apellido y lo demás
-    $sql_upd = $conexion->query("UPDATE pacientes SET 
-        nombre='$nom', 
-        apellido='$ape', 
-        direccion='$dir', 
-        telefono='$tel' 
-        WHERE id_paciente=$id_logueado");
+    $stmt = $conexion->prepare("UPDATE pacientes SET nombre=?, apellido=?, direccion=?, telefono=? WHERE id_paciente=?");
+    $stmt->bind_param("ssssi", $nom, $ape, $dir, $tel, $id_logueado);
 
-    if ($sql_upd) {
+    if ($stmt->execute()) {
         $mensaje = "<div class='alert alert-success'>¡Datos actualizados correctamente!</div>";
-        // Refrescamos los datos para que el cambio se vea en el saludo de la página
-        $res_pac = $conexion->query("SELECT * FROM pacientes WHERE id_paciente=$id_logueado");
-        $p = $res_pac->fetch_object();
     }
 }
 
 // --- LÓGICA: AGENDAR CITA ---
 if (!empty($_POST["btn_cita"])) {
-    $doc_id = $_POST["doctor"];
-    $fec = $_POST["fecha"];
-    $obs = $_POST["observaciones"];
+    $doc_id = (int) $_POST["doctor"];
+    $fec    = $_POST["fecha"];
+    $hora   = $_POST["hora"];
+    $obs    = $_POST["observaciones"];
 
-    // 1. Insertamos la cita
-    $sql_cita = $conexion->query("INSERT INTO citas (id_paciente, id_doctor, fecha_cita, observaciones) VALUES ($id_logueado, $doc_id, '$fec', '$obs')");
+    $stmt = $conexion->prepare("INSERT INTO citas (id_paciente, id_doctor, fecha_cita, hora_cita, observaciones) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("iisss", $id_logueado, $doc_id, $fec, $hora, $obs);
 
-    if ($sql_cita) {
-        // 2. Consultamos el nombre del doctor para la confirmación
-        $consulta_doc = $conexion->query("SELECT nombre, especialidad FROM doctores WHERE id_doctor = $doc_id");
-        $datos_doc = $consulta_doc->fetch_object();
-        
-        // 3. Formateamos la fecha (de AAAA-MM-DD a DD/MM/AAAA)
+    if ($stmt->execute()) {
+        $stmt_doc = $conexion->prepare("SELECT nombre, especialidad FROM doctores WHERE id_doctor = ?");
+        $stmt_doc->bind_param("i", $doc_id);
+        $stmt_doc->execute();
+        $datos_doc = $stmt_doc->get_result()->fetch_object();
+
         $fecha_formateada = date("d/m/Y", strtotime($fec));
+        $hora_formateada  = date("h:i A", strtotime($hora));
+        $nom_doctor  = htmlspecialchars($datos_doc->nombre);
+        $esp_doctor  = htmlspecialchars($datos_doc->especialidad);
 
-        // 4. Creamos el mensaje personalizado
         $mensaje = "
         <div class='alert alert-success shadow-sm'>
-            <h5 class='alert-heading'>¡Cita Agendada con Éxito! ✅</h5>
+            <h5 class='alert-heading'>¡Cita Agendada con Éxito!</h5>
             <hr>
-            <p class='mb-0'>Tu cita ha sido programada para el día <strong>$fecha_formateada</strong>.</p>
-            <p>Serás atendido por el <strong>Dr. $datos_doc->nombre</strong> ($datos_doc->especialidad).</p>
+            <p class='mb-0'>Tu cita ha sido programada para el día <strong>$fecha_formateada</strong> a las <strong>$hora_formateada</strong>.</p>
+            <p>Serás atendido por el <strong>Dr. $nom_doctor</strong> ($esp_doctor).</p>
             <small class='text-muted'>Por favor, preséntate 15 minutos antes de tu hora.</small>
         </div>";
     } else {
@@ -63,8 +58,10 @@ if (!empty($_POST["btn_cita"])) {
 }
 
 // Obtener datos actuales del paciente
-$res_pac = $conexion->query("SELECT * FROM pacientes WHERE id_paciente=$id_logueado");
-$p = $res_pac->fetch_object();
+$stmt_pac = $conexion->prepare("SELECT * FROM pacientes WHERE id_paciente = ?");
+$stmt_pac->bind_param("i", $id_logueado);
+$stmt_pac->execute();
+$p = $stmt_pac->get_result()->fetch_object();
 
 
 
@@ -80,7 +77,7 @@ $p = $res_pac->fetch_object();
 <body class="bg-light">
     <nav class="navbar navbar-dark bg-primary p-3 shadow">
         <div class="container">
-            <span class="navbar-brand">Portal del Paciente: <?= $p->nombre ?></span>
+            <span class="navbar-brand">Portal del Paciente: <?= htmlspecialchars($p->nombre) ?></span>
             <a href="salir.php" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
         </div>
     </nav>
@@ -95,19 +92,19 @@ $p = $res_pac->fetch_object();
 <form class="card-body" method="POST">
     <div class="mb-3">
         <label class="form-label">Nombre</label>
-        <input type="text" name="nuevo_nombre" class="form-control" value="<?= $p->nombre ?>" required>
+        <input type="text" name="nuevo_nombre" class="form-control" value="<?= htmlspecialchars($p->nombre) ?>" required>
     </div>
     <div class="mb-3">
         <label class="form-label">Apellido</label>
-        <input type="text" name="nuevo_apellido" class="form-control" value="<?= $p->apellido ?>" required>
+        <input type="text" name="nuevo_apellido" class="form-control" value="<?= htmlspecialchars($p->apellido) ?>" required>
     </div>
     <div class="mb-3">
         <label class="form-label">Dirección de Residencia</label>
-        <input type="text" name="direccion" class="form-control" value="<?= $p->direccion ?>">
+        <input type="text" name="direccion" class="form-control" value="<?= htmlspecialchars($p->direccion) ?>">
     </div>
     <div class="mb-3">
         <label class="form-label">Teléfono de Contacto</label>
-        <input type="text" name="telefono" class="form-control" value="<?= $p->telefono ?>">
+        <input type="text" name="telefono" class="form-control" value="<?= htmlspecialchars($p->telefono) ?>">
     </div>
     <button type="submit" name="btn_actualizar" value="ok" class="btn btn-dark w-100">Actualizar mis datos</button>
 </form>
@@ -124,14 +121,22 @@ $p = $res_pac->fetch_object();
                                 <?php
                                 $docs = $conexion->query("SELECT id_doctor, nombre, especialidad FROM doctores");
                                 while($d = $docs->fetch_object()){
-                                    echo "<option value='$d->id_doctor'>Dr. $d->nombre - $d->especialidad</option>";
+                                    $n = htmlspecialchars($d->nombre);
+                                    $e = htmlspecialchars($d->especialidad);
+                                    echo "<option value='$d->id_doctor'>Dr. $n - $e</option>";
                                 }
                                 ?>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Fecha Preferida</label>
-                            <input type="date" name="fecha" class="form-control" required min="<?= date('Y-m-d') ?>">
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Fecha Preferida</label>
+                                <input type="date" name="fecha" class="form-control" required min="<?= date('Y-m-d') ?>">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Hora</label>
+                                <input type="time" name="hora" class="form-control" required min="07:00" max="18:00">
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Motivo de la consulta / Síntomas</label>

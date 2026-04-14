@@ -6,10 +6,13 @@ include("conexion.php");
 if (!empty($_POST["btnentrar"])) {
     $email = $_POST["email"];
     $password = $_POST["password"];
-    
-    $sql = $conexion->query("SELECT * FROM login WHERE email='$email' AND contraseña='$password'");
-    
-    if ($datos = $sql->fetch_object()) {
+
+    $stmt = $conexion->prepare("SELECT * FROM login WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $datos = $stmt->get_result()->fetch_object();
+
+    if ($datos && password_verify($password, $datos->contraseña)) {
         $_SESSION["id"] = $datos->id_usuario;
         $_SESSION["email"] = $datos->email;
         $_SESSION["rol"] = $datos->rol;
@@ -21,7 +24,7 @@ if (!empty($_POST["btnentrar"])) {
         }
         exit();
     } else {
-        echo "<div class='alert alert-danger text-center mb-0'>Acceso denegado: Usuario o contraseña incorrectos</div>";
+        $error_login = "Acceso denegado: Usuario o contraseña incorrectos";
     }
 }
 
@@ -32,26 +35,24 @@ if (!empty($_POST["btnregistrar_paciente"])) {
     $dir = $_POST["dir"];
     $tel = $_POST["tel"];
     $email = $_POST["email"];
-    $pass = $_POST["pass"];
+    $pass = password_hash($_POST["pass"], PASSWORD_DEFAULT);
 
-    // Primero insertamos en la tabla de acceso (login)
-    $sql_login = $conexion->query("INSERT INTO login (email, contraseña, rol) VALUES ('$email', '$pass', 'paciente')");
+    $stmt = $conexion->prepare("INSERT INTO login (email, contraseña, rol) VALUES (?, ?, 'paciente')");
+    $stmt->bind_param("ss", $email, $pass);
 
-    if ($sql_login) {
-        // Capturamos el ID que se acaba de generar para este usuario
+    if ($stmt->execute()) {
         $id_generado = $conexion->insert_id;
 
-        // Insertamos en la tabla pacientes usando ese mismo ID
-        $sql_paciente = $conexion->query("INSERT INTO pacientes (id_paciente, nombre, apellido, direccion, telefono) 
-                                          VALUES ($id_generado, '$nom', '$ape', '$dir', '$tel')");
+        $stmt2 = $conexion->prepare("INSERT INTO pacientes (id_paciente, nombre, apellido, direccion, telefono) VALUES (?, ?, ?, ?, ?)");
+        $stmt2->bind_param("issss", $id_generado, $nom, $ape, $dir, $tel);
 
-        if ($sql_paciente) {
-            echo "<div class='alert alert-success text-center mb-0'>¡Registro exitoso! Bienvenido/a $nom, ya puedes iniciar sesión.</div>";
+        if ($stmt2->execute()) {
+            $msg_registro = "¡Registro exitoso! Bienvenido/a " . htmlspecialchars($nom) . ", ya puedes iniciar sesión.";
         } else {
-            echo "<div class='alert alert-danger mb-0'>Error al crear perfil: " . $conexion->error . "</div>";
+            $error_registro = "Error al crear perfil.";
         }
     } else {
-        echo "<div class='alert alert-danger mb-0'>Error al crear usuario: El correo podría estar ya registrado.</div>";
+        $error_registro = "Error al crear usuario: El correo podría estar ya registrado.";
     }
 }
 ?>
@@ -78,6 +79,15 @@ if (!empty($_POST["btnregistrar_paciente"])) {
                     <h2 class="fw-bold">Iniciar Sesión</h2>
                     <p class="text-muted">Clínica San Pablo</p>
                 </div>
+                <?php if (!empty($error_login)): ?>
+                    <div class="alert alert-danger text-center mb-3"><?= $error_login ?></div>
+                <?php endif; ?>
+                <?php if (!empty($msg_registro)): ?>
+                    <div class="alert alert-success text-center mb-3"><?= $msg_registro ?></div>
+                <?php endif; ?>
+                <?php if (!empty($error_registro)): ?>
+                    <div class="alert alert-danger text-center mb-3"><?= $error_registro ?></div>
+                <?php endif; ?>
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label">Correo Electrónico</label>

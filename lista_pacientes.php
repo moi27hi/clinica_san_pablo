@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (empty($_SESSION["id"])) { header("location: index.php"); exit(); }
+if (empty($_SESSION["id"]) || $_SESSION["rol"] != 'admin') { header("location: index.php"); exit(); }
 include("conexion.php");
 
 // --- LÓGICA PARA REGISTRAR PACIENTE ---
@@ -9,22 +9,26 @@ if (!empty($_POST["btnregistrar"])) {
     $ape = $_POST["apellido"];
     $dir = $_POST["direccion"];
     $tel = $_POST["telefono"];
-    
-    $sql = $conexion->query("INSERT INTO pacientes (nombre, apellido, direccion, telefono) VALUES ('$nom', '$ape', '$dir', '$tel')");
-    
-    if ($sql) {
+
+    $stmt = $conexion->prepare("INSERT INTO pacientes (nombre, apellido, direccion, telefono) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $nom, $ape, $dir, $tel);
+
+    if ($stmt->execute()) {
         header("location: lista_pacientes.php?res=registrado");
+        exit();
     } else {
-        echo "<div class='alert alert-danger text-center'>Error al registrar paciente.</div>";
+        $error = "Error al registrar paciente.";
     }
 }
 
 // --- LÓGICA PARA ELIMINAR PACIENTE ---
 if (!empty($_GET["id_eliminar"])) {
-    $id = $_GET["id_eliminar"];
-    $sql = $conexion->query("DELETE FROM pacientes WHERE id_paciente=$id");
-    if ($sql) {
+    $id = (int) $_GET["id_eliminar"];
+    $stmt = $conexion->prepare("DELETE FROM pacientes WHERE id_paciente = ?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
         header("location: lista_pacientes.php?res=eliminado");
+        exit();
     }
 }
 ?>
@@ -82,13 +86,13 @@ if (!empty($_GET["id_eliminar"])) {
                         while($datos = $query->fetch_object()) { ?>
                             <tr>
                                 <td><?= $datos->id_paciente ?></td>
-                                <td><?= $datos->nombre ?></td>
-                                <td><?= $datos->apellido ?></td>
-                                <td><?= $datos->direccion ?></td>
-                                <td><?= $datos->telefono ?></td>
+                                <td><?= htmlspecialchars($datos->nombre) ?></td>
+                                <td><?= htmlspecialchars($datos->apellido) ?></td>
+                                <td><?= htmlspecialchars($datos->direccion) ?></td>
+                                <td><?= htmlspecialchars($datos->telefono) ?></td>
                                 <td>
-                                    <a href="lista_pacientes.php?id_eliminar=<?= $datos->id_paciente ?>" 
-                                       onclick="return confirm('¿Eliminar permanentemente a este paciente?')" 
+                                    <a href="lista_pacientes.php?id_eliminar=<?= $datos->id_paciente ?>"
+                                       onclick="return confirm('¿Eliminar permanentemente a este paciente?')"
                                        class="btn btn-sm btn-outline-danger">Quitar</a>
                                 </td>
                             </tr>

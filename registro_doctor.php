@@ -1,20 +1,21 @@
 <?php
 session_start();
-if (empty($_SESSION["id"])) { header("location: index.php"); exit(); }
+if (empty($_SESSION["id"]) || $_SESSION["rol"] != 'admin') { header("location: index.php"); exit(); }
 include("conexion.php");
 
 if (!empty($_POST["btnregistrar"])) {
     $nom = $_POST["nombre"];
     $esp = $_POST["especialidad"];
     $tel = $_POST["telefono"];
-    
-    // Eliminamos 'id_paciente' de la consulta INSERT
-    $sql = $conexion->query("INSERT INTO doctores (nombre, especialidad, telefono) VALUES ('$nom', '$esp', '$tel')");
-    
-    if ($sql) {
+
+    $stmt = $conexion->prepare("INSERT INTO doctores (nombre, especialidad, telefono) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $nom, $esp, $tel);
+
+    if ($stmt->execute()) {
         header("location: lista_doctores.php?msg=ok");
+        exit();
     } else {
-        echo "<div class='alert alert-danger'>Error al registrar: " . $conexion->error . "</div>";
+        $error = "Error al registrar el médico.";
     }
 }
 ?>

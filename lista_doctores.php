@@ -1,13 +1,16 @@
 <?php
 session_start();
-if (empty($_SESSION["id"])) { header("location: index.php"); exit(); }
+if (empty($_SESSION["id"]) || $_SESSION["rol"] != 'admin') { header("location: index.php"); exit(); }
 include("conexion.php");
 
 // Eliminar doctor
 if (!empty($_GET["id_eliminar"])) {
-    $id = $_GET["id_eliminar"];
-    $conexion->query("DELETE FROM doctores WHERE id_doctor=$id");
-    header("location: lista_doctores.php");
+    $id = (int) $_GET["id_eliminar"];
+    $stmt = $conexion->prepare("DELETE FROM doctores WHERE id_doctor = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    header("location: lista_doctores.php?res=eliminado");
+    exit();
 }
 ?>
 
@@ -36,6 +39,10 @@ if (!empty($_GET["id_eliminar"])) {
             <a href="registro_doctor.php" class="btn btn-success"> + Registrar Doctor</a>
         </div>
 
+        <?php if (isset($_GET['res']) && $_GET['res'] == 'eliminado'): ?>
+            <div class="alert alert-warning">Médico eliminado del sistema.</div>
+        <?php endif; ?>
+
         <div class="card shadow">
             <div class="card-body p-0">
                 <table class="table table-striped table-hover mb-0">
@@ -54,12 +61,12 @@ if (!empty($_GET["id_eliminar"])) {
                         while($datos = $query->fetch_object()) { ?>
                             <tr>
                                 <td><?= $datos->id_doctor ?></td>
-                                <td><?= $datos->nombre ?></td>
-                                <td><?= $datos->especialidad ?></td>
-                                <td><?= $datos->telefono ?></td>
+                                <td><?= htmlspecialchars($datos->nombre) ?></td>
+                                <td><?= htmlspecialchars($datos->especialidad) ?></td>
+                                <td><?= htmlspecialchars($datos->telefono) ?></td>
                                 <td>
-                                    <a href="lista_doctores.php?id_eliminar=<?= $datos->id_doctor ?>" 
-                                       onclick="return confirm('¿Quitar a este médico del sistema?')" 
+                                    <a href="lista_doctores.php?id_eliminar=<?= $datos->id_doctor ?>"
+                                       onclick="return confirm('¿Quitar a este médico del sistema?')"
                                        class="btn btn-sm btn-outline-danger">Quitar</a>
                                 </td>
                             </tr>
@@ -69,5 +76,6 @@ if (!empty($_GET["id_eliminar"])) {
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
